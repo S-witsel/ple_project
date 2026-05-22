@@ -88,14 +88,15 @@ function App() {
   const [newTeamName, setNewTeamName] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [newTasklistName, setNewTasklistName] = useState('');
-  const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showTeamForm, setShowTeamForm] = useState(false);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showTasklistForm, setShowTasklistForm] = useState(false);
-  const [showTaskFormStatus, setShowTaskFormStatus] = useState('');
-  const [editingTaskId, setEditingTaskId] = useState('');
-  const [editingTaskTitle, setEditingTaskTitle] = useState('');
-  const [editingTaskStatus, setEditingTaskStatus] = useState(statusOrder[1]);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskModalMode, setTaskModalMode] = useState('create');
+  const [taskModalTaskId, setTaskModalTaskId] = useState('');
+  const [taskModalTitle, setTaskModalTitle] = useState('');
+  const [taskModalDescription, setTaskModalDescription] = useState('');
+  const [taskModalStatus, setTaskModalStatus] = useState(statusOrder[1]);
   const [tasklistMenuId, setTasklistMenuId] = useState('');
   const [tasklistMenuName, setTasklistMenuName] = useState('');
 
@@ -143,8 +144,8 @@ function App() {
     setShowTeamForm(false);
     setShowProjectForm(false);
     setShowTasklistForm(false);
-    setShowTaskFormStatus('');
-    setEditingTaskId('');
+    setTaskModalOpen(false);
+    setTaskModalTaskId('');
   };
 
   const createTeam = () => {
@@ -209,9 +210,18 @@ function App() {
     setNewTasklistName('');
   };
 
-  const addTask = (status = 'to do') => {
-    const title = newTaskTitle.trim();
-    if (!title || !activeProject || !activeTasklist) return;
+  const openTaskModal = (mode, status = 'to do', task = null) => {
+    setTaskModalMode(mode);
+    setTaskModalStatus(status);
+    setTaskModalTitle(task?.title ?? '');
+    setTaskModalDescription(task?.description ?? '');
+    setTaskModalTaskId(task?.id ?? '');
+    setTaskModalOpen(true);
+  };
+
+  const addTask = ({ title, description, status = 'to do' }) => {
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle || !activeProject || !activeTasklist) return;
 
     const taskId = `task${Date.now()}`;
     setData((current) => ({
@@ -226,14 +236,18 @@ function App() {
                   ? list
                   : {
                       ...list,
-                      tasks: [...list.tasks, { id: taskId, title, status }],
+                      tasks: [
+                        ...list.tasks,
+                        { id: taskId, title: trimmedTitle, description, status },
+                      ],
                     }
               ),
             }
       ),
     }));
-    setNewTaskTitle('');
-    setShowTaskFormStatus('');
+
+    setTaskModalOpen(false);
+    setTaskModalTaskId('');
   };
 
   const updateTask = (taskId, updates) => {
@@ -280,7 +294,10 @@ function App() {
             }
       ),
     }));
-    if (editingTaskId === taskId) setEditingTaskId('');
+    if (taskModalTaskId === taskId) {
+      setTaskModalOpen(false);
+      setTaskModalTaskId('');
+    }
   };
 
   const deleteTasklist = (tasklistId) => {
@@ -585,106 +602,21 @@ function App() {
                     <h3>{status}</h3>
                     <button
                       className="icon-button small"
-                      onClick={() => {
-                        setShowTaskFormStatus((current) => (current === status ? '' : status));
-                        setNewTaskTitle('');
-                      }}
+                      onClick={() => openTaskModal('create', status)}
                       aria-label={`Add task to ${status}`}
                     >
                       +
                     </button>
                   </div>
-                  {showTaskFormStatus === status && (
-                    <div className="status-add-row">
-                      <input
-                        className="input-field"
-                        value={newTaskTitle}
-                        placeholder={`Create new ${status} task`}
-                        onChange={(e) => setNewTaskTitle(e.target.value)}
-                      />
-                      <button
-                        className="icon-button primary small"
-                        onClick={() => addTask(status)}
-                        aria-label={`Create ${status} task`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
                   {(groupedTasks[status] || []).map((task) => (
-                    <div key={task.id} className="task-card">
-                      {editingTaskId === task.id ? (
-                        <>
-                          <label>
-                            Title
-                            <input
-                              className="input-field"
-                              value={editingTaskTitle}
-                              onChange={(e) => setEditingTaskTitle(e.target.value)}
-                            />
-                          </label>
-                          <label>
-                            Status
-                            <select
-                              className="select-field"
-                              value={editingTaskStatus}
-                              onChange={(e) => setEditingTaskStatus(e.target.value)}
-                            >
-                              {statusOrder.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <div className="action-row">
-                            <button
-                              className="primary-button"
-                              onClick={() => {
-                                updateTask(task.id, {
-                                  title: editingTaskTitle,
-                                  status: editingTaskStatus,
-                                });
-                                setEditingTaskId('');
-                              }}
-                            >
-                              Save
-                            </button>
-                            <button
-                              className="secondary-button"
-                              onClick={() => setEditingTaskId('')}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <strong>{task.title}</strong>
-                          <p>Status: {task.status}</p>
-                          <div className="action-row">
-                            <button
-                              className="icon-button"
-                              onClick={() => {
-                                setEditingTaskId(task.id);
-                                setEditingTaskTitle(task.title);
-                                setEditingTaskStatus(task.status);
-                              }}
-                              aria-label="Edit task"
-                            >
-                              ✎
-                            </button>
-                            <button
-                              className="icon-button danger"
-                              onClick={() => deleteTask(task.id)}
-                              aria-label="Delete task"
-                            >
-                              −
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                    <button
+                      key={task.id}
+                      className="task-card"
+                      onClick={() => openTaskModal('edit', task.status, task)}
+                      aria-label={`Open details for ${task.title}`}
+                    >
+                      <strong>{task.title}</strong>
+                    </button>
                   ))}
                   {(groupedTasks[status] || []).length === 0 && (
                     <div className="empty-state">No tasks</div>
@@ -692,6 +624,91 @@ function App() {
                 </div>
               ))}
             </div>
+
+            {taskModalOpen && (
+              <div className="modal-backdrop" onClick={() => { setTaskModalOpen(false); setTaskModalTaskId(''); }}>
+                <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>{taskModalMode === 'create' ? 'Create task' : 'Task details'}</h3>
+                    <button
+                      className="icon-button small"
+                      onClick={() => { setTaskModalOpen(false); setTaskModalTaskId(''); }}
+                      aria-label="Close task modal"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <label>
+                    Title
+                    <input
+                      className="input-field"
+                      value={taskModalTitle}
+                      onChange={(e) => setTaskModalTitle(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Description
+                    <textarea
+                      className="input-field"
+                      value={taskModalDescription}
+                      onChange={(e) => setTaskModalDescription(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Status
+                    <select
+                      className="select-field"
+                      value={taskModalStatus}
+                      onChange={(e) => setTaskModalStatus(e.target.value)}
+                    >
+                      {statusOrder.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="action-row">
+                    <button
+                      className="primary-button"
+                      onClick={() => {
+                        if (taskModalMode === 'create') {
+                          addTask({
+                            title: taskModalTitle,
+                            description: taskModalDescription,
+                            status: taskModalStatus,
+                          });
+                        } else {
+                          updateTask(taskModalTaskId, {
+                            title: taskModalTitle,
+                            description: taskModalDescription,
+                            status: taskModalStatus,
+                          });
+                          setTaskModalOpen(false);
+                          setTaskModalTaskId('');
+                        }
+                      }}
+                    >
+                      {taskModalMode === 'create' ? 'Create task' : 'Save changes'}
+                    </button>
+                    <button
+                      className="secondary-button"
+                      onClick={() => { setTaskModalOpen(false); setTaskModalTaskId(''); }}
+                    >
+                      Cancel
+                    </button>
+                    {taskModalMode === 'edit' && (
+                      <button
+                        className="secondary-button danger"
+                        onClick={() => deleteTask(taskModalTaskId)}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
       </main>
