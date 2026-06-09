@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import TaskModal from './TaskModal';
 
 export default function TasklistStage({
@@ -27,6 +28,7 @@ export default function TasklistStage({
   taskModalTitle,
   taskModalDescription,
   taskModalStatus,
+  taskModalDirty,
   setTaskModalTitle,
   setTaskModalDescription,
   setTaskModalStatus,
@@ -34,6 +36,9 @@ export default function TasklistStage({
   onModalSave,
   onModalDelete,
 }) {
+  const [layoutMode, setLayoutMode] = useState('board');
+  const isBoardLayout = layoutMode === 'board';
+
   return (
     <section className="panel">
       <div className="panel-header">
@@ -46,6 +51,9 @@ export default function TasklistStage({
         <button className="secondary-button" onClick={resetToProject}>
           Change project
         </button>
+        {taskModalOpen && taskModalDirty && (
+          <span className="unsaved-alert">Unsaved changes</span>
+        )}
       </div>
 
       <div className="tasklist-tabs">
@@ -132,7 +140,23 @@ export default function TasklistStage({
         </div>
       </div>
 
-      <div className="status-grid">
+      <div className="tasklist-layout-controls">
+        <span>View:</span>
+        <button
+          className={isBoardLayout ? 'tab-button active' : 'tab-button'}
+          onClick={() => setLayoutMode('board')}
+        >
+          Board
+        </button>
+        <button
+          className={!isBoardLayout ? 'tab-button active' : 'tab-button'}
+          onClick={() => setLayoutMode('list')}
+        >
+          List
+        </button>
+      </div>
+
+      <div className={`status-grid ${!isBoardLayout ? 'status-list' : ''}`}>
         {statusOrder.map((status) => (
           <div key={status} className="status-column">
             <div className="status-column-header">
@@ -169,6 +193,7 @@ export default function TasklistStage({
         description={taskModalDescription}
         status={taskModalStatus}
         statusOrder={statusOrder}
+        dirty={taskModalDirty}
         onTitleChange={setTaskModalTitle}
         onDescriptionChange={setTaskModalDescription}
         onStatusChange={setTaskModalStatus}

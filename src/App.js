@@ -3,7 +3,7 @@ import './App.css';
 import UserPicker from './components/UserPicker';
 import TeamPicker from './components/TeamPicker';
 import ProjectPicker from './components/ProjectPicker';
-import TasklistStage from './components/TasklistStage';
+import ProjectWorkspace from './components/ProjectWorkspace';
 
 const initialData = {
   users: [
@@ -363,6 +363,29 @@ function App() {
     setTasklistMenuId('');
   };
 
+  const taskModalOriginal = useMemo(() => {
+    if (taskModalMode !== 'edit' || !taskModalTaskId) return null;
+    return activeTasklist?.tasks?.find((task) => task.id === taskModalTaskId) ?? null;
+  }, [activeTasklist, taskModalMode, taskModalTaskId]);
+
+  const taskModalDirty = useMemo(() => {
+    if (!taskModalOpen) return false;
+    if (taskModalMode === 'create') {
+      return (
+        taskModalTitle.trim() !== '' ||
+        taskModalDescription.trim() !== '' ||
+        taskModalStatus !== statusOrder[1]
+      );
+    }
+
+    if (!taskModalOriginal) return false;
+    return (
+      taskModalTitle !== taskModalOriginal.title ||
+      (taskModalDescription ?? '') !== (taskModalOriginal.description ?? '') ||
+      taskModalStatus !== taskModalOriginal.status
+    );
+  }, [taskModalOpen, taskModalMode, taskModalTitle, taskModalDescription, taskModalStatus, taskModalOriginal]);
+
   const groupedTasks = useMemo(() => {
     const groups = statusOrder.reduce((acc, status) => ({ ...acc, [status]: [] }), {});
     (activeTasklist?.tasks ?? []).forEach((task) => {
@@ -456,7 +479,7 @@ function App() {
         )}
 
         {stage === 'tasklist' && activeProject && (
-          <TasklistStage
+          <ProjectWorkspace
             activeProject={activeProject}
             activeUser={activeUser}
             activeTeam={activeTeam}
@@ -483,6 +506,7 @@ function App() {
             taskModalTitle={taskModalTitle}
             taskModalDescription={taskModalDescription}
             taskModalStatus={taskModalStatus}
+            taskModalDirty={taskModalDirty}
             setTaskModalTitle={setTaskModalTitle}
             setTaskModalDescription={setTaskModalDescription}
             setTaskModalStatus={setTaskModalStatus}

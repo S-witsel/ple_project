@@ -172,13 +172,49 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
+}
+.unsaved-alert,
+.dirty-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.tasklist-layout-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.tasklist-layout-controls span {
+  color: #475569;
+  font-weight: 600;
+}
+
+.tasklist-layout-controls .tab-button {
+  min-width: auto;
+  padding: 10px 16px;
 }
 
 .status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
+}
+
+.status-grid.status-list {
+  display: block;
+}
+
+.status-grid.status-list .status-column {
+  margin-bottom: 20px;
 }
 
 .status-column {

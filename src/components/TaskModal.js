@@ -5,6 +5,7 @@ export default function TaskModal({
   description,
   status,
   statusOrder,
+  dirty,
   onTitleChange,
   onDescriptionChange,
   onStatusChange,
@@ -18,16 +19,19 @@ export default function TaskModal({
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
+        <div>
           <h3>{mode === 'create' ? 'Create task' : 'Task details'}</h3>
-          <button
-            type="button"
-            className="icon-button small"
-            onClick={onClose}
-            aria-label="Close task modal"
-          >
-            ×
-          </button>
+          {dirty && <span className="dirty-indicator">Unsaved changes</span>}
         </div>
+        <button
+          type="button"
+          className="icon-button small"
+          onClick={onClose}
+          aria-label="Close task modal"
+        >
+          ×
+        </button>
+      </div>
 
         <label>
           Title
