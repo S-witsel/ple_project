@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
 import './App.css';
+import UserPicker from './components/UserPicker';
+import TeamPicker from './components/TeamPicker';
+import ProjectPicker from './components/ProjectPicker';
+import TasklistStage from './components/TasklistStage';
 
 const initialData = {
   users: [
@@ -250,6 +254,28 @@ function App() {
     setTaskModalTaskId('');
   };
 
+  const closeTaskModal = () => {
+    setTaskModalOpen(false);
+    setTaskModalTaskId('');
+  };
+
+  const saveModalTask = () => {
+    if (taskModalMode === 'create') {
+      addTask({
+        title: taskModalTitle,
+        description: taskModalDescription,
+        status: taskModalStatus,
+      });
+    } else {
+      updateTask(taskModalTaskId, {
+        title: taskModalTitle,
+        description: taskModalDescription,
+        status: taskModalStatus,
+      });
+      closeTaskModal();
+    }
+  };
+
   const updateTask = (taskId, updates) => {
     if (!activeProject || !activeTasklist) return;
     setData((current) => ({
@@ -382,334 +408,88 @@ function App() {
 
       <main className="app-main">
         {stage === 'login' && (
-          <section className="panel">
-            <h2>Login as a user</h2>
-            <div className="card-grid">
-              {data.users.map((user) => (
-                <button
-                  key={user.id}
-                  className="select-card"
-                  onClick={() => {
-                    setSelectedUserId(user.id);
-                    setSelectedTeamId('');
-                    setSelectedProjectId('');
-                    setSelectedTasklistId('');
-                  }}
-                >
-                  {user.name}
-                </button>
-              ))}
-            </div>
-          </section>
+          <UserPicker
+            users={data.users}
+            onSelectUser={(userId) => {
+              setSelectedUserId(userId);
+              setSelectedTeamId('');
+              setSelectedProjectId('');
+              setSelectedTasklistId('');
+            }}
+          />
         )}
 
         {stage === 'team' && (
-          <section className="panel">
-            <h2>Choose a team</h2>
-            <p>Signed in as <strong>{activeUser.name}</strong>.</p>
-            <div className="card-grid">
-              {userTeams.map((team) => (
-                <button
-                  key={team.id}
-                  className="select-card"
-                  onClick={() => {
-                    setSelectedTeamId(team.id);
-                    setSelectedProjectId('');
-                    setSelectedTasklistId('');
-                  }}
-                >
-                  {team.name}
-                </button>
-              ))}
-            </div>
-
-            <div className="form-card">
-              <h3>Create a new team</h3>
-              <button
-                className="secondary-button"
-                onClick={() => setShowTeamForm((current) => !current)}
-              >
-                {showTeamForm ? 'Cancel' : 'New team'}
-              </button>
-              {showTeamForm && (
-                <div className="field-row">
-                  <input
-                    className="input-field"
-                    type="text"
-                    value={newTeamName}
-                    placeholder="Team name"
-                    onChange={(e) => setNewTeamName(e.target.value)}
-                  />
-                  <button className="primary-button" onClick={createTeam}>
-                    Create team
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
+          <TeamPicker
+            activeUser={activeUser}
+            userTeams={userTeams}
+            showTeamForm={showTeamForm}
+            toggleTeamForm={() => setShowTeamForm((current) => !current)}
+            newTeamName={newTeamName}
+            setNewTeamName={setNewTeamName}
+            createTeam={createTeam}
+            onSelectTeam={(teamId) => {
+              setSelectedTeamId(teamId);
+              setSelectedProjectId('');
+              setSelectedTasklistId('');
+            }}
+          />
         )}
 
         {stage === 'project' && (
-          <section className="panel">
-            <h2>Pick a project</h2>
-            <p>
-              {activeUser.name} → <strong>{activeTeam.name}</strong>
-            </p>
-            <div className="card-grid">
-              {teamProjects.map((project) => (
-                <button
-                  key={project.id}
-                  className="select-card"
-                  onClick={() => {
-                    setSelectedProjectId(project.id);
-                    setSelectedTasklistId(project.tasklists[0]?.id ?? '');
-                  }}
-                >
-                  {project.name}
-                </button>
-              ))}
-            </div>
-
-            <div className="form-card">
-              <h3>Create a new project</h3>
-              <button
-                className="secondary-button"
-                onClick={() => setShowProjectForm((current) => !current)}
-              >
-                {showProjectForm ? 'Cancel' : 'New project'}
-              </button>
-              {showProjectForm && (
-                <div className="field-row">
-                  <input
-                    className="input-field"
-                    type="text"
-                    value={newProjectName}
-                    placeholder="Project name"
-                    onChange={(e) => setNewProjectName(e.target.value)}
-                  />
-                  <button className="primary-button" onClick={createProject}>
-                    Create project
-                  </button>
-                </div>
-              )}
-            </div>
-          </section>
+          <ProjectPicker
+            activeUser={activeUser}
+            activeTeam={activeTeam}
+            teamProjects={teamProjects}
+            showProjectForm={showProjectForm}
+            toggleProjectForm={() => setShowProjectForm((current) => !current)}
+            newProjectName={newProjectName}
+            setNewProjectName={setNewProjectName}
+            createProject={createProject}
+            onSelectProject={(projectId) => {
+              setSelectedProjectId(projectId);
+              setSelectedTasklistId(
+                data.projects.find((project) => project.id === projectId)?.tasklists[0]?.id ?? ''
+              );
+            }}
+          />
         )}
 
         {stage === 'tasklist' && activeProject && (
-          <section className="panel">
-            <div className="panel-header">
-              <div>
-                <h2>{activeProject.name}</h2>
-                <p>
-                  {activeUser.name} / {activeTeam.name}
-                </p>
-              </div>
-              <button className="secondary-button" onClick={() => resetBelow('project')}>
-                Change project
-              </button>
-            </div>
-
-
-            <div className="tasklist-tabs">
-              {tasklists.map((list) => (
-                <div key={list.id} className="tab-item">
-                  <button
-                    className={list.id === activeTasklist?.id ? 'tab-button active' : 'tab-button'}
-                    onClick={() => setSelectedTasklistId(list.id)}
-                  >
-                    {list.name}
-                  </button>
-                  <button
-                    className="icon-button"
-                    aria-label={`Tasklist menu ${list.name}`}
-                    onClick={() => {
-                      setTasklistMenuId(tasklistMenuId === list.id ? '' : list.id);
-                      setTasklistMenuName(list.name);
-                    }}
-                  >
-                    ⋯
-                  </button>
-                  {tasklistMenuId === list.id && (
-                    <div className="menu-popup">
-                      <input
-                        className="input-field"
-                        value={tasklistMenuName}
-                        onChange={(e) => setTasklistMenuName(e.target.value)}
-                      />
-                      <div className="action-row">
-                        <button
-                          className="primary-button"
-                          onClick={() => editTasklistName(list.id, tasklistMenuName)}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="secondary-button"
-                          onClick={() => {
-                            deleteTasklist(list.id);
-                            setTasklistMenuId('');
-                          }}
-                        >
-                          Delete
-                        </button>
-                        <button
-                          className="secondary-button"
-                          onClick={() => setTasklistMenuId('')}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              <div className="tab-item">
-                <button
-                  className="icon-button primary small"
-                  aria-label="Add tasklist"
-                  onClick={() => setShowTasklistForm((c) => !c)}
-                >
-                  +
-                </button>
-                {showTasklistForm && (
-                  <div className="menu-popup">
-                    <input
-                      className="input-field"
-                      type="text"
-                      value={newTasklistName}
-                      placeholder="Tasklist name"
-                      onChange={(e) => setNewTasklistName(e.target.value)}
-                    />
-                    <div className="action-row">
-                      <button className="primary-button" onClick={createTasklist}>
-                        Add
-                      </button>
-                      <button className="secondary-button" onClick={() => setShowTasklistForm(false)}>
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="status-grid">
-              {statusOrder.map((status) => (
-                <div key={status} className="status-column">
-                  <div className="status-column-header">
-                    <h3>{status}</h3>
-                    <button
-                      className="icon-button small"
-                      onClick={() => openTaskModal('create', status)}
-                      aria-label={`Add task to ${status}`}
-                    >
-                      +
-                    </button>
-                  </div>
-                  {(groupedTasks[status] || []).map((task) => (
-                    <button
-                      key={task.id}
-                      className="task-card"
-                      onClick={() => openTaskModal('edit', task.status, task)}
-                      aria-label={`Open details for ${task.title}`}
-                    >
-                      <strong>{task.title}</strong>
-                    </button>
-                  ))}
-                  {(groupedTasks[status] || []).length === 0 && (
-                    <div className="empty-state">No tasks</div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {taskModalOpen && (
-              <div className="modal-backdrop" onClick={() => { setTaskModalOpen(false); setTaskModalTaskId(''); }}>
-                <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h3>{taskModalMode === 'create' ? 'Create task' : 'Task details'}</h3>
-                    <button
-                      className="icon-button small"
-                      onClick={() => { setTaskModalOpen(false); setTaskModalTaskId(''); }}
-                      aria-label="Close task modal"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <label>
-                    Title
-                    <input
-                      className="input-field"
-                      value={taskModalTitle}
-                      onChange={(e) => setTaskModalTitle(e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Description
-                    <textarea
-                      className="input-field"
-                      value={taskModalDescription}
-                      onChange={(e) => setTaskModalDescription(e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    Status
-                    <select
-                      className="select-field"
-                      value={taskModalStatus}
-                      onChange={(e) => setTaskModalStatus(e.target.value)}
-                    >
-                      {statusOrder.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="action-row">
-                    <button
-                      className="primary-button"
-                      onClick={() => {
-                        if (taskModalMode === 'create') {
-                          addTask({
-                            title: taskModalTitle,
-                            description: taskModalDescription,
-                            status: taskModalStatus,
-                          });
-                        } else {
-                          updateTask(taskModalTaskId, {
-                            title: taskModalTitle,
-                            description: taskModalDescription,
-                            status: taskModalStatus,
-                          });
-                          setTaskModalOpen(false);
-                          setTaskModalTaskId('');
-                        }
-                      }}
-                    >
-                      {taskModalMode === 'create' ? 'Create task' : 'Save changes'}
-                    </button>
-                    <button
-                      className="secondary-button"
-                      onClick={() => { setTaskModalOpen(false); setTaskModalTaskId(''); }}
-                    >
-                      Cancel
-                    </button>
-                    {taskModalMode === 'edit' && (
-                      <button
-                        className="secondary-button danger"
-                        onClick={() => deleteTask(taskModalTaskId)}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
+          <TasklistStage
+            activeProject={activeProject}
+            activeUser={activeUser}
+            activeTeam={activeTeam}
+            tasklists={tasklists}
+            activeTasklist={activeTasklist}
+            tasklistMenuId={tasklistMenuId}
+            setTasklistMenuId={setTasklistMenuId}
+            tasklistMenuName={tasklistMenuName}
+            setTasklistMenuName={setTasklistMenuName}
+            showTasklistForm={showTasklistForm}
+            setShowTasklistForm={setShowTasklistForm}
+            newTasklistName={newTasklistName}
+            setNewTasklistName={setNewTasklistName}
+            createTasklist={createTasklist}
+            onSelectTasklist={setSelectedTasklistId}
+            openTaskModal={openTaskModal}
+            groupedTasks={groupedTasks}
+            statusOrder={statusOrder}
+            editTasklistName={editTasklistName}
+            deleteTasklist={deleteTasklist}
+            resetToProject={() => resetBelow('project')}
+            taskModalOpen={taskModalOpen}
+            taskModalMode={taskModalMode}
+            taskModalTitle={taskModalTitle}
+            taskModalDescription={taskModalDescription}
+            taskModalStatus={taskModalStatus}
+            setTaskModalTitle={setTaskModalTitle}
+            setTaskModalDescription={setTaskModalDescription}
+            setTaskModalStatus={setTaskModalStatus}
+            onModalClose={closeTaskModal}
+            onModalSave={saveModalTask}
+            onModalDelete={() => deleteTask(taskModalTaskId)}
+          />
         )}
       </main>
     </div>
