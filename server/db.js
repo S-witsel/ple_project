@@ -1,7 +1,8 @@
 const { Pool } = require('pg');
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ple_project',
+  // Prefer DATABASE_URL env var. Default to local PLEdb if not set.
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/PLEdb',
 });
 
 function query(text, params) {

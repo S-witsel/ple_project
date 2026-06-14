@@ -23,11 +23,37 @@ app.get('/api/project/:projectId', async (req, res) => {
   res.json({ projectId, message: 'Project data endpoint placeholder' });
 });
 
+app.get('/api/character/:userId/:projectId', async (req, res) => {
+  const { userId, projectId } = req.params;
+  try {
+    const result = await query(
+      'SELECT stats, abilities, equipment, inventory, created_at, updated_at FROM characters WHERE user_id = $1 AND project_id = $2',
+      [userId, projectId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ ok: false, message: 'Character not found' });
+    return res.json({ ok: true, character: result.rows[0] });
+  } catch (err) {
+    console.error('GET /api/character error', err);
+    return res.status(500).json({ ok: false, error: 'database error' });
+  }
+});
+
 app.post('/api/character/:userId/:projectId', async (req, res) => {
   const { userId, projectId } = req.params;
   const character = req.body;
-  // TODO: Persist the player character build in PostgreSQL.
-  res.json({ ok: true, userId, projectId, character });
+  try {
+    await query(
+      `INSERT INTO characters (user_id, project_id, stats, abilities, equipment, inventory, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,now(),now())
+       ON CONFLICT (user_id, project_id)
+       DO UPDATE SET stats = $3, abilities = $4, equipment = $5, inventory = $6, updated_at = now()`,
+      [userId, projectId, character.stats || {}, character.abilities || [], character.equipment || {}, character.inventory || {}]
+    );
+    return res.json({ ok: true, userId, projectId });
+  } catch (err) {
+    console.error('POST /api/character error', err);
+    return res.status(500).json({ ok: false, error: 'database error' });
+  }
 });
 
 app.post('/api/battle/:projectId', async (req, res) => {
