@@ -3,6 +3,6 @@ import App from './App';
 
 test('shows login screen when app starts', () => {
   render(<App />);
-  const heading = screen.getByText(/login as a user/i);
+  const heading = screen.getByRole('heading', { level: 2, name: /login/i });
   expect(heading).toBeInTheDocument();
 });

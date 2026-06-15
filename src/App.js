@@ -4,6 +4,20 @@ import UserPicker from './components/UserPicker';
 import TeamPicker from './components/TeamPicker';
 import ProjectPicker from './components/ProjectPicker';
 import ProjectWorkspace from './components/ProjectWorkspace';
+import {
+  fetchUserDetails,
+  createTeam as apiCreateTeam,
+  fetchInviteCode,
+  joinTeamWithInvite,
+  leaveTeam as apiLeaveTeam,
+  createProject as apiCreateProject,
+  createTasklist as apiCreateTasklist,
+  renameTasklist as apiRenameTasklist,
+  deleteTasklist as apiDeleteTasklist,
+  createTask as apiCreateTask,
+  updateTask as apiUpdateTask,
+  deleteTask as apiDeleteTask,
+} from './services/api';
 
 const initialData = {
   users: [
@@ -129,6 +143,15 @@ function App() {
     ? 'project'
     : 'tasklist';
 
+  const loadUserData = async (userId) => {
+    const payload = await fetchUserDetails(userId);
+    if (payload && payload.ok) {
+      setData({ users: [payload.user], teams: payload.teams, projects: payload.projects });
+      return payload;
+    }
+    return null;
+  };
+
   const resetBelow = (level) => {
     if (level === 'login') {
       setSelectedUserId('');
@@ -152,53 +175,116 @@ function App() {
     setTaskModalTaskId('');
   };
 
-  const createTeam = () => {
+  const getTeamInviteCode = async (teamId) => {
+    if (!activeUser) return null;
+    const response = await fetchInviteCode(teamId, activeUser.id);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not generate invite code.');
+      return null;
+    }
+    return response.code;
+  };
+
+  const joinByInviteCode = async (code) => {
+    if (!activeUser) return;
+    const response = await joinTeamWithInvite(activeUser.id, code);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not join team.');
+      return;
+    }
+
+    const payload = await loadUserData(activeUser.id);
+    if (payload) {
+      setSelectedTeamId(response.teamId);
+      setSelectedProjectId('');
+      setSelectedTasklistId('');
+    }
+  };
+
+  const leaveTeam = async (teamId) => {
+    if (!activeUser) return;
+    const confirmed = window.confirm('Leave this team? You can rejoin later with an invite code.');
+    if (!confirmed) return;
+
+    const response = await apiLeaveTeam(teamId, activeUser.id);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not leave team.');
+      return;
+    }
+
+    await loadUserData(activeUser.id);
+    if (teamId === selectedTeamId) {
+      setSelectedTeamId('');
+      setSelectedProjectId('');
+      setSelectedTasklistId('');
+    }
+  };
+
+  const deleteAccount = async () => {
+    if (!activeUser) return;
+    const confirmed = window.confirm(`Delete account ${activeUser.name}? This cannot be undone.`);
+    if (!confirmed) return;
+    try {
+      const res = await fetch(`/api/users/${activeUser.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.ok) {
+        resetBelow('login');
+      } else {
+        alert(data.error || data.message || 'Could not delete account.');
+      }
+    } catch (err) {
+      alert('Could not delete account.');
+    }
+  };
+
+  const createTeam = async () => {
     const name = newTeamName.trim();
     if (!name || !activeUser) return;
 
-    const id = `t${Date.now()}`;
-    setData((current) => ({
-      ...current,
-      teams: [...current.teams, { id, name }],
-      users: current.users.map((user) =>
-        user.id === activeUser.id
-          ? { ...user, teamIds: [...user.teamIds, id] }
-          : user
-      ),
-    }));
-    setSelectedTeamId(id);
+    const response = await apiCreateTeam(name, activeUser.id);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not create team.');
+      return;
+    }
+
+    await loadUserData(activeUser.id);
+    setSelectedTeamId(response.team.id);
     setSelectedProjectId('');
     setSelectedTasklistId('');
     setNewTeamName('');
+    setShowTeamForm(false);
   };
 
-  const createProject = () => {
+  const createProject = async () => {
     const name = newProjectName.trim();
     if (!name || !activeTeam) return;
 
-    const projectId = `p${Date.now()}`;
-    const tasklistId = `l${Date.now()}0`;
-    const newProject = {
-      id: projectId,
-      name,
-      teamId: activeTeam.id,
-      tasklists: [{ id: tasklistId, name: 'General', tasks: [] }],
-    };
+    const response = await apiCreateProject(activeTeam.id, name);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not create project.');
+      return;
+    }
 
     setData((current) => ({
       ...current,
-      projects: [...current.projects, newProject],
+      projects: [...current.projects, response.project],
     }));
-    setSelectedProjectId(projectId);
-    setSelectedTasklistId(tasklistId);
+    setSelectedProjectId(response.project.id);
+    setSelectedTasklistId(response.project.tasklists[0]?.id || '');
     setNewProjectName('');
+    setShowProjectForm(false);
   };
 
-  const createTasklist = () => {
+  const createTasklist = async () => {
     const name = newTasklistName.trim();
     if (!name || !activeProject) return;
 
-    const tasklistId = `l${Date.now()}`;
+    const response = await apiCreateTasklist(activeProject.id, name);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not create tasklist.');
+      return;
+    }
+
     setData((current) => ({
       ...current,
       projects: current.projects.map((project) =>
@@ -206,12 +292,13 @@ function App() {
           ? project
           : {
               ...project,
-              tasklists: [...project.tasklists, { id: tasklistId, name, tasks: [] }],
+              tasklists: [...project.tasklists, { ...response.tasklist, tasks: [] }],
             }
       ),
     }));
-    setSelectedTasklistId(tasklistId);
+    setSelectedTasklistId(response.tasklist.id);
     setNewTasklistName('');
+    setShowTasklistForm(false);
   };
 
   const openTaskModal = (mode, status = 'to do', task = null) => {
@@ -223,11 +310,16 @@ function App() {
     setTaskModalOpen(true);
   };
 
-  const addTask = ({ title, description, status = 'to do' }) => {
+  const addTask = async ({ title, description, status = 'to do' }) => {
     const trimmedTitle = title.trim();
     if (!trimmedTitle || !activeProject || !activeTasklist) return;
 
-    const taskId = `task${Date.now()}`;
+    const response = await apiCreateTask(activeTasklist.id, trimmedTitle, description, status);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not create task.');
+      return;
+    }
+
     setData((current) => ({
       ...current,
       projects: current.projects.map((project) =>
@@ -240,10 +332,7 @@ function App() {
                   ? list
                   : {
                       ...list,
-                      tasks: [
-                        ...list.tasks,
-                        { id: taskId, title: trimmedTitle, description, status },
-                      ],
+                      tasks: [...list.tasks, response.task],
                     }
               ),
             }
@@ -259,15 +348,15 @@ function App() {
     setTaskModalTaskId('');
   };
 
-  const saveModalTask = () => {
+  const saveModalTask = async () => {
     if (taskModalMode === 'create') {
-      addTask({
+      await addTask({
         title: taskModalTitle,
         description: taskModalDescription,
         status: taskModalStatus,
       });
     } else {
-      updateTask(taskModalTaskId, {
+      await updateTask(taskModalTaskId, {
         title: taskModalTitle,
         description: taskModalDescription,
         status: taskModalStatus,
@@ -276,8 +365,14 @@ function App() {
     }
   };
 
-  const updateTask = (taskId, updates) => {
+  const updateTask = async (taskId, updates) => {
     if (!activeProject || !activeTasklist) return;
+    const response = await apiUpdateTask(taskId, updates.title, updates.description, updates.status);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not update task.');
+      return;
+    }
+
     setData((current) => ({
       ...current,
       projects: current.projects.map((project) =>
@@ -300,8 +395,14 @@ function App() {
     }));
   };
 
-  const deleteTask = (taskId) => {
+  const deleteTask = async (taskId) => {
     if (!activeProject || !activeTasklist) return;
+    const response = await apiDeleteTask(taskId);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not delete task.');
+      return;
+    }
+
     setData((current) => ({
       ...current,
       projects: current.projects.map((project) =>
@@ -326,8 +427,14 @@ function App() {
     }
   };
 
-  const deleteTasklist = (tasklistId) => {
+  const deleteTasklist = async (tasklistId) => {
     if (!activeProject) return;
+    const response = await apiDeleteTasklist(tasklistId);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not delete tasklist.');
+      return;
+    }
+
     const remaining = activeProject.tasklists.filter((list) => list.id !== tasklistId);
     setData((current) => ({
       ...current,
@@ -345,8 +452,14 @@ function App() {
     }
   };
 
-  const editTasklistName = (tasklistId, name) => {
+  const editTasklistName = async (tasklistId, name) => {
     if (!activeProject) return;
+    const response = await apiRenameTasklist(tasklistId, name);
+    if (!response || !response.ok) {
+      alert(response?.error || response?.message || 'Could not rename tasklist.');
+      return;
+    }
+
     setData((current) => ({
       ...current,
       projects: current.projects.map((project) =>
@@ -426,15 +539,26 @@ function App() {
           <button className="link-button" disabled={!activeProject}>
             Tasklists
           </button>
+          {activeUser && (
+            <button
+              type="button"
+              className="secondary-button"
+              style={{ marginLeft: 16 }}
+              onClick={deleteAccount}
+            >
+              Delete account
+            </button>
+          )}
         </div>
       </header>
 
       <main className="app-main">
         {stage === 'login' && (
           <UserPicker
-            users={data.users}
-            onSelectUser={(userId) => {
-              setSelectedUserId(userId);
+            onSelectUser={async (user) => {
+              const payload = await loadUserData(user.id);
+              if (!payload) return;
+              setSelectedUserId(payload.user.id);
               setSelectedTeamId('');
               setSelectedProjectId('');
               setSelectedTasklistId('');
@@ -456,6 +580,9 @@ function App() {
               setSelectedProjectId('');
               setSelectedTasklistId('');
             }}
+            getTeamInviteCode={getTeamInviteCode}
+            joinByInviteCode={joinByInviteCode}
+            leaveTeam={leaveTeam}
           />
         )}
 

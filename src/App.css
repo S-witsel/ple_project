@@ -413,3 +413,48 @@
   font-size: 0.95rem;
   margin-top: 10px;
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 20px;
+  max-width: 400px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+}
+
+.modal h3 {
+  margin: 0 0 8px;
+}
+
+.modal p {
+  margin: 0 0 16px;
+  color: #475569;
+}
+
+.danger-button {
+  border: none;
+  border-radius: 12px;
+  background: #dc2626;
+  color: white;
+  padding: 14px 18px;
+  cursor: pointer;
+  min-width: 120px;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.danger-button:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}

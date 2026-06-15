@@ -12,6 +12,7 @@ import {
   getPlayerCharacter,
   calculateCharacterStats,
 } from '../services/gameService';
+import { fetchCharacterBuild, saveCharacterBuild } from '../services/api';
 
 export default function ProjectWorkspace({
   activeProject,
@@ -54,35 +55,52 @@ export default function ProjectWorkspace({
   );
 
   useEffect(() => {
-    setPlayerCharacter(getPlayerCharacter(activeUser.id, activeProject.id));
+    let alive = true;
+    const loadCharacter = async () => {
+      const payload = await fetchCharacterBuild(activeUser.id, activeProject.id);
+      if (!alive) return;
+      if (payload?.ok && payload.character) {
+        setPlayerCharacter(payload.character);
+      } else {
+        setPlayerCharacter(getPlayerCharacter(activeUser.id, activeProject.id));
+      }
+    };
+    loadCharacter();
+    return () => {
+      alive = false;
+    };
   }, [activeUser.id, activeProject.id]);
 
   const availableAbilities = useMemo(() => getAvailableAbilities(), []);
   const availableEquipment = useMemo(() => getAvailableEquipment(), []);
   const computedStats = useMemo(() => calculateCharacterStats(playerCharacter), [playerCharacter]);
 
-  const handleEquipAbility = (slotIndex, abilityId) => {
-    if (abilityId === null || abilityId === '') {
-      setPlayerCharacter(equipAbility(activeUser.id, activeProject.id, slotIndex, null));
-      return;
-    }
-    setPlayerCharacter(equipAbility(activeUser.id, activeProject.id, slotIndex, abilityId));
+  const handleEquipAbility = async (slotIndex, abilityId) => {
+    const updatedCharacter = abilityId === null || abilityId === ''
+      ? equipAbility(activeUser.id, activeProject.id, slotIndex, null)
+      : equipAbility(activeUser.id, activeProject.id, slotIndex, abilityId);
+    setPlayerCharacter(updatedCharacter);
+    await saveCharacterBuild(activeUser.id, activeProject.id, updatedCharacter);
   };
 
-  const handleEquipEquipment = (slotKey, equipmentId) => {
-    if (equipmentId === null || equipmentId === '') {
-      setPlayerCharacter(equipEquipment(activeUser.id, activeProject.id, slotKey, null));
-      return;
-    }
-    setPlayerCharacter(equipEquipment(activeUser.id, activeProject.id, slotKey, equipmentId));
+  const handleEquipEquipment = async (slotKey, equipmentId) => {
+    const updatedCharacter = equipmentId === null || equipmentId === ''
+      ? equipEquipment(activeUser.id, activeProject.id, slotKey, null)
+      : equipEquipment(activeUser.id, activeProject.id, slotKey, equipmentId);
+    setPlayerCharacter(updatedCharacter);
+    await saveCharacterBuild(activeUser.id, activeProject.id, updatedCharacter);
   };
 
-  const handleAcquireAbility = (abilityId) => {
-    setPlayerCharacter(acquireAbility(activeUser.id, activeProject.id, abilityId));
+  const handleAcquireAbility = async (abilityId) => {
+    const updatedCharacter = acquireAbility(activeUser.id, activeProject.id, abilityId);
+    setPlayerCharacter(updatedCharacter);
+    await saveCharacterBuild(activeUser.id, activeProject.id, updatedCharacter);
   };
 
-  const handleAcquireEquipment = (equipmentId) => {
-    setPlayerCharacter(acquireEquipment(activeUser.id, activeProject.id, equipmentId));
+  const handleAcquireEquipment = async (equipmentId) => {
+    const updatedCharacter = acquireEquipment(activeUser.id, activeProject.id, equipmentId);
+    setPlayerCharacter(updatedCharacter);
+    await saveCharacterBuild(activeUser.id, activeProject.id, updatedCharacter);
   };
 
   return (
