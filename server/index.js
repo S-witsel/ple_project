@@ -153,6 +153,24 @@ app.post('/api/teams/join', async (req, res) => {
   }
 });
 
+app.get('/api/teams/:teamId/members', async (req, res) => {
+  const { teamId } = req.params;
+  try {
+    const result = await query(
+      `SELECT u.id, u.name, tm.role
+       FROM team_members tm
+       JOIN users u ON u.id = tm.user_id
+       WHERE tm.team_id = $1
+       ORDER BY CASE WHEN tm.role = 'owner' THEN 0 ELSE 1 END, u.name`,
+      [teamId]
+    );
+    return res.json({ ok: true, members: result.rows });
+  } catch (err) {
+    console.error('GET /api/teams/:teamId/members error', err);
+    return res.status(500).json({ ok: false, error: 'database error' });
+  }
+});
+
 app.post('/api/teams/:teamId/leave', async (req, res) => {
   const { teamId } = req.params;
   const { userId } = req.body;

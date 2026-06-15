@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { fetchTeamMembers } from '../services/api';
 
 export default function TeamPicker({
   activeUser,
@@ -19,6 +20,12 @@ export default function TeamPicker({
   const [modalError, setModalError] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [memberTeam, setMemberTeam] = useState(null);
+  const [memberList, setMemberList] = useState([]);
+  const [memberLoading, setMemberLoading] = useState(false);
+  const [memberError, setMemberError] = useState('');
+  const [teamInviteCode, setTeamInviteCode] = useState('');
 
   const openInviteModal = async (teamId) => {
     setInviteModalOpen(true);
@@ -28,6 +35,32 @@ export default function TeamPicker({
     const code = await getTeamInviteCode(teamId);
     setIsGenerating(false);
     if (code) setInviteCode(code);
+  };
+
+  const openMemberModal = async (team) => {
+    setMemberModalOpen(true);
+    setMemberTeam(team);
+    setMemberList([]);
+    setMemberError('');
+    setTeamInviteCode('');
+    setMemberLoading(true);
+
+    const response = await fetchTeamMembers(team.id);
+    if (!response || !response.ok) {
+      setMemberError(response?.error || response?.message || 'Could not load team members.');
+    } else {
+      setMemberList(response.members || []);
+    }
+
+    setMemberLoading(false);
+  };
+
+  const generateTeamInvite = async () => {
+    if (!memberTeam) return;
+    setTeamInviteCode('');
+    setMemberError('');
+    const code = await getTeamInviteCode(memberTeam.id);
+    if (code) setTeamInviteCode(code);
   };
 
   const handleJoinCode = async () => {
@@ -50,6 +83,14 @@ export default function TeamPicker({
     setModalError('');
   };
 
+  const closeMemberModal = () => {
+    setMemberModalOpen(false);
+    setMemberTeam(null);
+    setMemberList([]);
+    setMemberError('');
+    setTeamInviteCode('');
+  };
+
   return (
     <section className="panel">
       <h2>Choose a team</h2>
@@ -58,28 +99,23 @@ export default function TeamPicker({
       </p>
       <div className="card-grid">
         {userTeams.map((team) => (
-          <div key={team.id}>
-            <button
-              className="select-card"
-              onClick={() => onSelectTeam(team.id)}
-            >
+          <div key={team.id} style={{ paddingBottom: 10 }}>
+            <button className="select-card" onClick={() => onSelectTeam(team.id)}>
               {team.name}
             </button>
-            <div className="action-row" style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 6, fontSize: 12, color: '#475569' }}>
+              Role: <strong>{team.role || 'member'}</strong>
+            </div>
+            <div className="action-row" style={{ marginTop: 8, gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="secondary-button" onClick={() => openMemberModal(team)}>
+                View members
+              </button>
               {team.role === 'owner' && (
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => openInviteModal(team.id)}
-                >
+                <button type="button" className="secondary-button" onClick={() => openInviteModal(team.id)}>
                   Invite
                 </button>
               )}
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => leaveTeam(team.id)}
-              >
+              <button type="button" className="secondary-button" onClick={() => leaveTeam(team.id)}>
                 Leave
               </button>
             </div>
@@ -153,6 +189,51 @@ export default function TeamPicker({
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {memberModalOpen && (
+        <div className="modal-backdrop" onClick={closeMemberModal}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <h3>Team members</h3>
+                <p>Members of {memberTeam?.name}</p>
+              </div>
+              <button type="button" className="icon-button small" onClick={closeMemberModal}>
+                ×
+              </button>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              {memberLoading && <p>Loading members…</p>}
+              {memberError && <div className="unsaved-alert">{memberError}</div>}
+              {!memberLoading && !memberError && (
+                <ul style={{ paddingLeft: 20, margin: '12px 0' }}>
+                  {memberList.map((member) => (
+                    <li key={member.id} style={{ marginBottom: 6 }}>
+                      <strong>{member.name}</strong>
+                      {member.role === 'owner' ? ' (Owner)' : ' (Member)'}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {memberTeam?.role === 'owner' && (
+                <div style={{ marginTop: 16 }}>
+                  <button type="button" className="primary-button" onClick={generateTeamInvite}>
+                    Generate invite code
+                  </button>
+                  {teamInviteCode && (
+                    <div style={{ marginTop: 10 }}>
+                      Invite code: <strong>{teamInviteCode}</strong>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <button type="button" className="secondary-button" onClick={closeMemberModal}>
+              Close
+            </button>
           </div>
         </div>
       )}

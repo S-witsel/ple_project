@@ -516,12 +516,12 @@ function App() {
           <p>Login, choose a team, select a project, and manage tasklists by role.</p>
         </div>
         <div className="breadcrumbs">
-          <button className="link-button" onClick={() => resetBelow('login')}>
+          <button className={`link-button ${stage === 'login' ? 'active' : ''}`} onClick={() => resetBelow('login')}>
             Login
           </button>
           <span> / </span>
           <button
-            className="link-button"
+            className={`link-button ${stage === 'team' ? 'active' : ''}`}
             disabled={!activeUser}
             onClick={() => resetBelow('team')}
           >
@@ -529,14 +529,14 @@ function App() {
           </button>
           <span> / </span>
           <button
-            className="link-button"
+            className={`link-button ${stage === 'project' ? 'active' : ''}`}
             disabled={!activeTeam}
             onClick={() => resetBelow('project')}
           >
             Projects
           </button>
           <span> / </span>
-          <button className="link-button" disabled={!activeProject}>
+          <button className={`link-button ${stage === 'tasklist' ? 'active' : ''}`} disabled={!activeProject}>
             Tasklists
           </button>
           {activeUser && (

@@ -41,6 +41,12 @@
   font-size: 0.95rem;
 }
 
+.link-button.active {
+  color: #1d4ed8;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 .link-button:disabled {
   color: #94a3b8;
   cursor: default;

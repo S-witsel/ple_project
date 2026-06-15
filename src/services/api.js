@@ -62,6 +62,19 @@ export async function joinTeamWithInvite(userId, code) {
   }
 }
 
+export async function fetchTeamMembers(teamId) {
+  try {
+    const response = await fetch(`/api/teams/${teamId}/members`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch team members');
+    }
+    return response.json();
+  } catch (error) {
+    console.warn('API fetchTeamMembers failed', error);
+    return null;
+  }
+}
+
 export async function leaveTeam(teamId, userId) {
   try {
     const response = await fetch(`/api/teams/${teamId}/leave`, {
