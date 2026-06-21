@@ -22,28 +22,6 @@ export function subscribeBattleEvents(socket, handlers = {}) {
   };
 }
 
-export function subscribeProjectEvents(socket, handlers = {}) {
-  if (!socket) return () => {};
-  socket.on('project:update', handlers.onProjectUpdate);
-  socket.on('project:joined', handlers.onJoined);
-  socket.on('disconnect', handlers.onDisconnect);
-  return () => {
-    socket.off('project:update');
-    socket.off('project:joined');
-    socket.off('disconnect');
-  };
-}
-
-export function joinProject(socket, projectId) {
-  if (!socket || !projectId) return;
-  socket.emit('joinProject', { projectId });
-}
-
-export function leaveProject(socket, projectId) {
-  if (!socket || !projectId) return;
-  socket.emit('leaveProject', { projectId });
-}
-
 export function emitBattleAction(socket, action) {
   if (!socket) return;
   socket.emit('battle:action', action);

@@ -98,7 +98,7 @@ export default function UserPicker({ onSelectUser }) {
             }}
           />
         </label>
-
+            <br></br>
         <label>
           Password
           <input

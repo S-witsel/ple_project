@@ -196,11 +196,6 @@ app.post('/api/teams/:teamId/leave', async (req, res) => {
   }
 });
 
-function emitProjectUpdate(projectId, update) {
-  if (!projectId || !update) return;
-  io.to(`project:${projectId}`).emit('project:update', { projectId, ...update });
-}
-
 app.post('/api/projects', async (req, res) => {
   const { teamId, name } = req.body;
   if (!teamId || !name) return res.status(400).json({ ok: false, message: 'teamId and name required' });
@@ -211,9 +206,7 @@ app.post('/api/projects', async (req, res) => {
   try {
     await query('INSERT INTO projects (id, name, team_id) VALUES ($1, $2, $3)', [projectId, name, teamId]);
     await query('INSERT INTO tasklists (id, project_id, name) VALUES ($1, $2, $3)', [tasklistId, projectId, 'General']);
-    const project = { id: projectId, name, teamId, tasklists: [{ id: tasklistId, project_id: projectId, name: 'General', tasks: [] }] };
-    emitProjectUpdate(projectId, { type: 'project:created', project });
-    return res.json({ ok: true, project });
+    return res.json({ ok: true, project: { id: projectId, name, teamId, tasklists: [{ id: tasklistId, project_id: projectId, name: 'General', tasks: [] }] } });
   } catch (err) {
     console.error('POST /api/projects error', err);
     return res.status(500).json({ ok: false, error: 'database error' });
@@ -227,9 +220,7 @@ app.post('/api/tasklists', async (req, res) => {
   const tasklistId = `l${Date.now()}`;
   try {
     await query('INSERT INTO tasklists (id, project_id, name) VALUES ($1, $2, $3)', [tasklistId, projectId, name]);
-    const tasklist = { id: tasklistId, project_id: projectId, name, tasks: [] };
-    emitProjectUpdate(projectId, { type: 'tasklist:created', tasklist });
-    return res.json({ ok: true, tasklist });
+    return res.json({ ok: true, tasklist: { id: tasklistId, project_id: projectId, name, tasks: [] } });
   } catch (err) {
     console.error('POST /api/tasklists error', err);
     return res.status(500).json({ ok: false, error: 'database error' });
@@ -243,9 +234,6 @@ app.put('/api/tasklists/:tasklistId', async (req, res) => {
 
   try {
     await query('UPDATE tasklists SET name = $1 WHERE id = $2', [name, tasklistId]);
-    const tasklistResult = await query('SELECT project_id FROM tasklists WHERE id = $1', [tasklistId]);
-    const projectId = tasklistResult.rows[0]?.project_id;
-    emitProjectUpdate(projectId, { type: 'tasklist:updated', tasklist: { id: tasklistId, name } });
     return res.json({ ok: true });
   } catch (err) {
     console.error('PUT /api/tasklists/:tasklistId error', err);
@@ -256,10 +244,7 @@ app.put('/api/tasklists/:tasklistId', async (req, res) => {
 app.delete('/api/tasklists/:tasklistId', async (req, res) => {
   const { tasklistId } = req.params;
   try {
-    const tasklistResult = await query('SELECT project_id FROM tasklists WHERE id = $1', [tasklistId]);
-    const projectId = tasklistResult.rows[0]?.project_id;
     await query('DELETE FROM tasklists WHERE id = $1', [tasklistId]);
-    emitProjectUpdate(projectId, { type: 'tasklist:deleted', tasklistId });
     return res.json({ ok: true });
   } catch (err) {
     console.error('DELETE /api/tasklists/:tasklistId error', err);
@@ -277,11 +262,7 @@ app.post('/api/tasks', async (req, res) => {
       'INSERT INTO tasks (id, tasklist_id, title, description, status, created_at) VALUES ($1, $2, $3, $4, $5, now())',
       [taskId, tasklistId, title, description || '', status || 'to do']
     );
-    const task = { id: taskId, tasklist_id: tasklistId, title, description: description || '', status: status || 'to do' };
-    const tasklistResult = await query('SELECT project_id FROM tasklists WHERE id = $1', [tasklistId]);
-    const projectId = tasklistResult.rows[0]?.project_id;
-    emitProjectUpdate(projectId, { type: 'task:created', task });
-    return res.json({ ok: true, task });
+    return res.json({ ok: true, task: { id: taskId, tasklist_id: tasklistId, title, description: description || '', status: status || 'to do' } });
   } catch (err) {
     console.error('POST /api/tasks error', err);
     return res.status(500).json({ ok: false, error: 'database error' });
@@ -295,11 +276,6 @@ app.put('/api/tasks/:taskId', async (req, res) => {
 
   try {
     await query('UPDATE tasks SET title = $1, description = $2, status = $3 WHERE id = $4', [title, description || '', status, taskId]);
-    const taskResult = await query('SELECT tasklist_id FROM tasks WHERE id = $1', [taskId]);
-    const tasklistId = taskResult.rows[0]?.tasklist_id;
-    const projectIdResult = await query('SELECT project_id FROM tasklists WHERE id = $1', [tasklistId]);
-    const projectId = projectIdResult.rows[0]?.project_id;
-    emitProjectUpdate(projectId, { type: 'task:updated', task: { id: taskId, title, description: description || '', status } });
     return res.json({ ok: true });
   } catch (err) {
     console.error('PUT /api/tasks/:taskId error', err);
@@ -310,12 +286,7 @@ app.put('/api/tasks/:taskId', async (req, res) => {
 app.delete('/api/tasks/:taskId', async (req, res) => {
   const { taskId } = req.params;
   try {
-    const taskResult = await query('SELECT tasklist_id FROM tasks WHERE id = $1', [taskId]);
-    const tasklistId = taskResult.rows[0]?.tasklist_id;
-    const projectIdResult = tasklistId ? await query('SELECT project_id FROM tasklists WHERE id = $1', [tasklistId]) : { rows: [] };
-    const projectId = projectIdResult.rows[0]?.project_id;
     await query('DELETE FROM tasks WHERE id = $1', [taskId]);
-    emitProjectUpdate(projectId, { type: 'task:deleted', taskId });
     return res.json({ ok: true });
   } catch (err) {
     console.error('DELETE /api/tasks/:taskId error', err);
@@ -448,17 +419,6 @@ io.on('connection', (socket) => {
   socket.on('joinBattle', (payload) => {
     socket.join(`battle:${payload.projectId}`);
     socket.emit('battle:joined', { projectId: payload.projectId });
-  });
-
-  socket.on('joinProject', (payload) => {
-    if (!payload || !payload.projectId) return;
-    socket.join(`project:${payload.projectId}`);
-    socket.emit('project:joined', { projectId: payload.projectId });
-  });
-
-  socket.on('leaveProject', (payload) => {
-    if (!payload || !payload.projectId) return;
-    socket.leave(`project:${payload.projectId}`);
   });
 
   socket.on('battle:action', (action) => {

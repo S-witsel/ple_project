@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import './App.css';
 import UserPicker from './components/UserPicker';
 import TeamPicker from './components/TeamPicker';
@@ -18,12 +18,6 @@ import {
   updateTask as apiUpdateTask,
   deleteTask as apiDeleteTask,
 } from './services/api';
-import {
-  createSocketClient,
-  joinProject,
-  leaveProject,
-  subscribeProjectEvents,
-} from './services/socketService';
 
 const initialData = {
   users: [
@@ -123,8 +117,6 @@ function App() {
   const [taskModalStatus, setTaskModalStatus] = useState(statusOrder[1]);
   const [tasklistMenuId, setTasklistMenuId] = useState('');
   const [tasklistMenuName, setTasklistMenuName] = useState('');
-  const [socket, setSocket] = useState(null);
-  const currentProjectRef = useRef(null);
 
   const activeUser = data.users.find((user) => user.id === selectedUserId);
 
@@ -150,151 +142,6 @@ function App() {
     : !activeProject
     ? 'project'
     : 'tasklist';
-
-  const applyProjectUpdate = useCallback((update) => {
-    if (!update || !update.type || !update.projectId) return;
-
-    setData((current) => {
-      switch (update.type) {
-        case 'project:created': {
-          if (current.projects.some((project) => project.id === update.project.id)) return current;
-          return { ...current, projects: [...current.projects, update.project] };
-        }
-        case 'tasklist:created': {
-          return {
-            ...current,
-            projects: current.projects.map((project) =>
-              project.id !== update.projectId
-                ? project
-                : { ...project, tasklists: [...project.tasklists, update.tasklist] }
-            ),
-          };
-        }
-        case 'tasklist:updated': {
-          return {
-            ...current,
-            projects: current.projects.map((project) =>
-              project.id !== update.projectId
-                ? project
-                : {
-                    ...project,
-                    tasklists: project.tasklists.map((list) =>
-                      list.id !== update.tasklist.id ? list : { ...list, name: update.tasklist.name }
-                    ),
-                  }
-            ),
-          };
-        }
-        case 'tasklist:deleted': {
-          return {
-            ...current,
-            projects: current.projects.map((project) =>
-              project.id !== update.projectId
-                ? project
-                : {
-                    ...project,
-                    tasklists: project.tasklists.filter((list) => list.id !== update.tasklistId),
-                  }
-            ),
-          };
-        }
-        case 'task:created': {
-          return {
-            ...current,
-            projects: current.projects.map((project) =>
-              project.id !== update.projectId
-                ? project
-                : {
-                    ...project,
-                    tasklists: project.tasklists.map((list) =>
-                      list.id !== update.task.tasklist_id
-                        ? list
-                        : { ...list, tasks: [...list.tasks, update.task] }
-                    ),
-                  }
-            ),
-          };
-        }
-        case 'task:updated': {
-          return {
-            ...current,
-            projects: current.projects.map((project) =>
-              project.id !== update.projectId
-                ? project
-                : {
-                    ...project,
-                    tasklists: project.tasklists.map((list) => ({
-                      ...list,
-                      tasks: list.tasks.map((task) =>
-                        task.id !== update.task.id ? task : { ...task, ...update.task }
-                      ),
-                    })),
-                  }
-            ),
-          };
-        }
-        case 'task:deleted': {
-          return {
-            ...current,
-            projects: current.projects.map((project) =>
-              project.id !== update.projectId
-                ? project
-                : {
-                    ...project,
-                    tasklists: project.tasklists.map((list) => ({
-                      ...list,
-                      tasks: list.tasks.filter((task) => task.id !== update.taskId),
-                    })),
-                  }
-            ),
-          };
-        }
-        default:
-          return current;
-      }
-    });
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    let socketClient = null;
-
-    const backendUrl = `http://${window.location.hostname}:4000`;
-    createSocketClient(backendUrl).then((client) => {
-      if (!mounted || !client) return;
-      socketClient = client;
-      setSocket(client);
-      subscribeProjectEvents(client, {
-        onProjectUpdate: applyProjectUpdate,
-        onJoined: () => {},
-        onDisconnect: () => {},
-      });
-    });
-
-    return () => {
-      mounted = false;
-      if (socketClient) {
-        socketClient.disconnect();
-      }
-    };
-  }, [applyProjectUpdate]);
-
-  useEffect(() => {
-    if (!socket) return;
-    const previousProjectId = currentProjectRef.current;
-    if (previousProjectId && previousProjectId !== selectedProjectId) {
-      leaveProject(socket, previousProjectId);
-    }
-    if (selectedProjectId) {
-      joinProject(socket, selectedProjectId);
-      currentProjectRef.current = selectedProjectId;
-    }
-    return () => {
-      if (selectedProjectId) {
-        leaveProject(socket, selectedProjectId);
-      }
-    };
-  }, [selectedProjectId, socket]);
 
   const loadUserData = async (userId) => {
     const payload = await fetchUserDetails(userId);
